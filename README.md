@@ -1,2 +1,2 @@
 # deploytopythonanywhere
-My submission for the module "Web Services and Applications".
+used to deploy code to pythonanywhere
