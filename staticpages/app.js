@@ -1,11 +1,15 @@
 /* =========================================================================
    Books Manager — jQuery AJAX CRUD (id, title, author, price)
-   API base set to http://localhost:5000
    ========================================================================= */
 
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE_URL = "";
 const ENDPOINT = "/books";
 const AUTH_TOKEN = ""; // if needed, set to your bearer token
+
+console.log("APP_JS VERSION 2026-04-19-2");
+console.log("API_BASE_URL =", API_BASE_URL);
+console.log("ENDPOINT =", ENDPOINT);
+console.log("Resolved URL =", API_BASE_URL.replace(/\/+$/, "") + ENDPOINT);
 
 // ------------------------------ Utilities ---------------------------------
 
@@ -36,17 +40,27 @@ function api(method, path, data) {
   return $.ajax({
     url,
     method,
-    crossDomain: true,
     contentType: data ? "application/json; charset=utf-8" : undefined,
     dataType: "json",
     data: data ? JSON.stringify(data) : undefined,
     headers: AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {},
   })
     .done((res, status, xhr) => {
-      console.log(`[API DONE] ${method} ${url}`, { status, res, xhr });
+      console.log(`[API DONE] ${method} ${url}`, {
+        status,
+        httpStatus: xhr.status,
+        res
+      });
     })
     .fail((xhr, status, err) => {
-      console.error(`[API FAIL] ${method} ${url}`, { status, err, xhr });
+      console.error(`[API FAIL] ${method} ${url}`, {
+        status,
+        err,
+        httpStatus: xhr.status,
+        responseText: xhr.responseText,
+        responseJSON: xhr.responseJSON,
+        xhr
+      });
     });
 }
 
@@ -70,7 +84,7 @@ function formatPrice(value) {
 
 // ------------------------------ State -------------------------------------
 
-let allBooks = [];  // cached list (for client-side search)
+let allBooks = [];
 
 // ------------------------------ Rendering ---------------------------------
 
@@ -111,7 +125,7 @@ function renderBooks(books) {
         `<td>` +
           `<div class="row-actions">` +
             `<button class="btn btn-secondary btn-edit">Edit</button>` +
-            `<button class="btn btn" style="border-color:#33222a;background:#1b1014;color:#fca5a5" title="Delete">Delete</button>` +
+            `<button class="btn btn-delete" style="border-color:#33222a;background:#1b1014;color:#fca5a5" title="Delete">Delete</button>` +
           `</div>` +
         `</td>` +
       `</tr>`;
@@ -164,19 +178,19 @@ async function loadBooks() {
   console.log("[Load] loadBooks() called");
   showLoading(true);
   try {
-    const data = await api("GET", ENDPOINT); // Expect: array of books
+    const data = await api("GET", ENDPOINT);
     console.log("[Load] GET /books response:", data, "Array?", Array.isArray(data));
     if (Array.isArray(data)) {
       allBooks = data;
-      renderBooks(allBooks); // render EXACTLY what server returns
+      renderBooks(allBooks);
     } else {
       showToast("Unexpected response from server.", "error");
-      renderBooks([]); // show 'No books' row to avoid blank state
+      renderBooks([]);
     }
   } catch (err) {
     console.error("[Load] GET /books threw error:", err);
     showToast("Failed to load books.", "error");
-    renderBooks([]); // show 'No books' row
+    renderBooks([]);
   } finally {
     showLoading(false);
     console.log("[Load] loadBooks() finished");
@@ -192,7 +206,6 @@ async function createBook(payload) {
     showToast("Book created.", "success");
     allBooks.push(created);
     renderBooks(allBooks);
-    // Reset form
     $("#bookForm")[0].reset();
     $("#bookId").val("");
     $("#formTitle").text("Add a New Book");
@@ -216,7 +229,6 @@ async function updateBook(id, payload) {
     const idx = allBooks.findIndex(b => String(b.id) === String(id));
     if (idx !== -1) allBooks[idx] = updated;
     renderBooks(allBooks);
-    // Reset form
     $("#bookForm")[0].reset();
     $("#bookId").val("");
     $("#formTitle").text("Add a New Book");
@@ -267,16 +279,13 @@ async function getBook(id) {
 $(document).ready(function() {
   console.log("[DOM] document.ready — initializing handlers and loading books");
 
-  // Fetch & display books on page load (no initial filter)
   loadBooks();
 
-  // Refresh button
   $("#refreshBtn").on("click", () => {
     console.log("[UI] Refresh clicked");
     loadBooks();
   });
 
-  // Search/filter (applies only to already-fetched list)
   $("#searchInput").on("input", function() {
     const q = $(this).val();
     console.log("[UI] Search input:", q);
@@ -286,13 +295,13 @@ $(document).ready(function() {
     );
     renderBooks(filtered);
   });
+
   $("#clearSearchBtn").on("click", function() {
     console.log("[UI] Clear search clicked");
     $("#searchInput").val("");
     renderBooks(allBooks);
   });
 
-  // Form submit (create/update)
   $("#bookForm").on("submit", async function(e) {
     e.preventDefault();
 
@@ -303,33 +312,8 @@ $(document).ready(function() {
     };
     console.log("[Form] submit formData:", formData);
 
-    // Validate
-    const isValid = (function validateForm(fd) {
-      let ok = true;
-      $(".error").text("");
-
-      if (!fd.title || !fd.title.trim()) {
-        $(`.error[data-for="title"]`).text("Title is required");
-        ok = false;
-      }
-      if (!fd.author || !fd.author.trim()) {
-        $(`.error[data-for="author"]`).text("Author is required");
-        ok = false;
-      }
-      if (fd.price === "" || fd.price === null || fd.price === undefined) {
-        $(`.error[data-for="price"]`).text("Price is required");
-        ok = false;
-      } else {
-        const p = Number(fd.price);
-        if (!Number.isFinite(p) || p < 0) {
-          $(`.error[data-for="price"]`).text("Price must be a non-negative number");
-          ok = false;
-        }
-      }
-      console.log("[Form] validation ok?", ok);
-      return ok;
-    })(formData);
-
+    const isValid = validateForm(formData);
+    console.log("[Form] validation ok?", isValid);
     if (!isValid) return;
 
     const id = $("#bookId").val();
@@ -346,7 +330,6 @@ $(document).ready(function() {
     }
   });
 
-  // Reset form
   $("#resetBtn").on("click", function() {
     console.log("[UI] Reset clicked");
     $("#bookForm")[0].reset();
@@ -356,7 +339,6 @@ $(document).ready(function() {
     $(".error").text("");
   });
 
-  // Row actions: Edit
   $("#booksTbody").on("click", ".btn-edit", async function() {
     const id = $(this).closest("tr").data("id");
     console.log("[UI] Edit clicked for id:", id);
@@ -372,11 +354,8 @@ $(document).ready(function() {
     }
   });
 
-  // Row actions: Delete
-  $("#booksTbody").on("click", ".row-actions .btn", function() {
-    const $btn = $(this);
-    if ($btn.hasClass("btn-edit")) return; // handled above
-    const id = $btn.closest("tr").data("id");
+  $("#booksTbody").on("click", ".btn-delete", function() {
+    const id = $(this).closest("tr").data("id");
     console.log("[UI] Delete clicked for id:", id);
     if (!id) return;
     if (confirm("Are you sure you want to delete this book?")) {
