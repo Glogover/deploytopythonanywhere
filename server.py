@@ -1,10 +1,7 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 from bookDAO import bookDAO
 
 app = Flask(__name__, static_url_path="", static_folder="staticpages")
-CORS(app)
-app.config["CORS_HEADERS"] = "Content-Type"
 
 
 @app.route("/")
