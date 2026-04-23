@@ -1,9 +1,11 @@
-# boook dao 
-# this is a demonstration a data layer that connects to a database
+# fuel station DAO - Data Access Object
+# This class is responsible for all interactions with the fuel_stations table in the mySQL database
+# Author: Marcin Kaminski
+
 
 import mysql.connector
 import dbconfig as cfg
-class BookDAO:
+class FuelStationDAO:
     connection=""
     cursor =''
     host=       ''
@@ -33,7 +35,7 @@ class BookDAO:
          
     def getAll(self):
         cursor = self.getcursor()
-        sql="select * from book"
+        sql="select * from fuel_stations"
         cursor.execute(sql)
         results = cursor.fetchall()
         returnArray = []
@@ -47,7 +49,7 @@ class BookDAO:
 
     def findByID(self, id):
         cursor = self.getcursor()
-        sql="select * from book where id = %s"
+        sql="select * from fuel_stations where id = %s"
         values = (id,)
 
         cursor.execute(sql, values)
@@ -56,31 +58,31 @@ class BookDAO:
         self.closeAll()
         return returnvalue
 
-    def create(self, book):
+    def create(self, fuel_stations):
         cursor = self.getcursor()
-        sql="insert into book (title,author, price) values (%s,%s,%s)"
-        values = (book.get("title"), book.get("author"), book.get("price"))
+        sql="insert into fuel_stations (name, brand, locality, postcode) values (%s,%s,%s,%s)"
+        values = (fuel_stations.get("name"), fuel_stations.get("brand"), fuel_stations.get("locality"), fuel_stations.get("postcode"))
         cursor.execute(sql, values)
 
         self.connection.commit()
         newid = cursor.lastrowid
-        book["id"] = newid
+        fuel_stations["id"] = newid
         self.closeAll()
-        return book
+        return fuel_stations
 
 
-    def update(self, id, book):
+    def update(self, id, fuel_stations):
         cursor = self.getcursor()
-        sql="update book set title= %s,author=%s, price=%s  where id = %s"
+        sql="update fuel_stations set name= %s,brand=%s, locality=%s, postcode=%s  where id = %s"
         
-        values = (book.get("title"), book.get("author"), book.get("price"),id)
+        values = (fuel_stations.get("name"), fuel_stations.get("brand"), fuel_stations.get("locality"), fuel_stations.get("postcode"),id)
         cursor.execute(sql, values)
         self.connection.commit()
         self.closeAll()
         
     def delete(self, id):
         cursor = self.getcursor()
-        sql="delete from book where id = %s"
+        sql="delete from fuel_stations where id = %s"
         values = (id,)
 
         cursor.execute(sql, values)
@@ -91,13 +93,13 @@ class BookDAO:
         print("delete done")
 
     def convertToDictionary(self, resultLine):
-        attkeys=['id','title','author', "price"]
-        book = {}
+        attkeys=['id','name','brand', "locality", "postcode"]
+        fuel_stations = {}
         currentkey = 0
         for attrib in resultLine:
-            book[attkeys[currentkey]] = attrib
+            fuel_stations[attkeys[currentkey]] = attrib
             currentkey = currentkey + 1 
-        return book
+        return fuel_stations
 
         
-bookDAO = BookDAO()
+fuelStationDAO = FuelStationDAO()
