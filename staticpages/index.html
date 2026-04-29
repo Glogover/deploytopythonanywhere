@@ -2,93 +2,196 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Books Manager</title>
-
-  <!-- Styles -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WS&A Project</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
 </head>
 <body>
-  <header class="app-header">
-    <h1>📚 Books Manager</h1>
-    <div class="header-actions">
-      <button id="refreshBtn" class="btn">Refresh</button>
-      <input id="searchInput" class="input" type="search" placeholder="Search by title/author…"/>
-      <button id="clearSearchBtn" class="btn btn-secondary">Clear</button>
-    </div>
+  <header class="hero">
+    <nav class="topbar">
+      <div class="brand-lockup">
+        <span class="brand-mark">F</span>
+        <div>
+          <p class="eyebrow">Marcin Kaminski presents</p>
+          <h1>WS&A Project</h1>
+        </div>
+      </div>
+      <div class="status-pill" id="apiStatus">API ready</div>
+    </nav>
+
+    <section class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow accent">Stations • Prices • Calculations</p>
+        <h2>Fuel Analytics Dashboard</h2>
+        <p class="hero-text">Create, update, search and compare station prices using the Flask CRUD API.<br>Use the quick search on the right to filter visible tables by station, brand or locality.</p>
+      </div>
+      <div class="search-card">
+        <label for="globalSearch">Search dashboard</label>
+        <div class="search-row">
+          <input id="globalSearch" type="search" placeholder="Search station, brand,locality" autocomplete="off" />
+          <button type="button" id="searchBtn" class="btn primary">Search</button>
+        </div>
+        <div class="button-row">
+          <button type="button" id="resetBtn" class="btn secondary">Reset</button>
+          <button type="button" id="clearBtn" class="btn ghost">Clear</button>
+        </div>
+      </div>
+    </section>
   </header>
 
   <main class="container">
-    <section class="card">
-      <h2 id="formTitle">Add a New Book</h2>
-      <form id="bookForm" novalidate>
-        <!-- Hidden field to indicate edit mode -->
-        <input type="hidden" id="bookId" name="id" />
-
-        <div class="grid">
-          <label class="field">
-            <span>Title <em>*</em></span>
-            <input type="text" id="title" name="title" class="input" required placeholder="e.g., Clean Code"/>
-            <small class="error" data-for="title"></small>
-          </label>
-
-          <label class="field">
-            <span>Author <em>*</em></span>
-            <input type="text" id="author" name="author" class="input" required placeholder="e.g., Robert C. Martin"/>
-            <small class="error" data-for="author"></small>
-          </label>
-
-          <label class="field">
-            <span>Price (€) <em>*</em></span>
-            <input type="number" id="price" name="price" class="input" min="0" step="0.01" required placeholder="e.g., 24.99"/>
-            <small class="error" data-for="price"></small>
-          </label>
+    <section class="section-card spotlight">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Recent prices</p>
+          <h3>List fuel prices by locality and date</h3>
         </div>
-
-        <div class="actions">
-          <button type="submit" class="btn btn-primary" id="submitBtn">Create</button>
-          <button type="button" class="btn btn-secondary" id="resetBtn">Reset</button>
+        <button type="button" id="loadAllPricesBtn" class="btn secondary">Load all prices</button>
+      </div>
+      <form id="localityDateForm" class="form-grid compact-form">
+        <div class="field">
+          <label for="filterLocality">Locality</label>
+          <input id="filterLocality" name="locality" type="text" placeholder="e.g. Dublin" required />
+        </div>
+        <div class="field">
+          <label for="filterDate">Price date</label>
+          <input id="filterDate" name="price_date" type="date" required />
+        </div>
+        <div class="form-actions align-end">
+          <button type="submit" class="btn primary">Find prices</button>
         </div>
       </form>
-    </section>
-
-    <section class="card">
-      <div class="list-header">
-        <h2>Books</h2>
-        <span id="countBadge" class="badge">0</span>
-      </div>
+      <div id="recentPriceSummary" class="summary-strip">Use locality and date to load matching station prices, or load all recent prices.</div>
       <div class="table-wrap">
-        <table class="table">
+        <table id="recentPricesTable">
           <thead>
             <tr>
-              <th style="width: 72px;">ID</th>
-              <th>Title</th>
-              <th>Author</th>
-              <th style="width: 120px;">Price (€)</th>
-              <th style="width: 160px;">Actions</th>
+              <th>Station</th>
+              <th>Locality</th>
+              <th>Petrol 95</th>
+              <th>Diesel</th>
+              <th>LPG</th>
+              <th>Date</th>
             </tr>
           </thead>
-          <tbody id="booksTbody">
-            <!-- Rows rendered by JS -->
-          </tbody>
+          <tbody></tbody>
         </table>
       </div>
     </section>
+
+    <section class="grid two-columns">
+      <article class="section-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">CRUD</p>
+            <h3>Fuel stations</h3>
+          </div>
+          <button type="button" id="refreshStationsBtn" class="btn secondary">Refresh</button>
+        </div>
+        <form id="stationForm" class="form-grid">
+          <input type="hidden" id="stationId" />
+          <div class="field"><label for="stationName">Name</label><input id="stationName" type="text" required /></div>
+          <div class="field"><label for="stationBrand">Brand</label><input id="stationBrand" type="text" required /></div>
+          <div class="field"><label for="stationLocality">Locality</label><input id="stationLocality" type="text" required /></div>
+          <div class="field"><label for="stationPostcode">Postcode</label><input id="stationPostcode" type="text" required /></div>
+          <div class="form-actions full-span">
+            <button type="submit" class="btn primary">Save station</button>
+            <button type="button" id="newStationBtn" class="btn ghost">New station</button>
+          </div>
+        </form>
+        <div class="table-wrap short-table">
+          <table id="stationsTable">
+            <thead><tr><th>ID</th><th>Name</th><th>Brand</th><th>Locality</th><th>Postcode</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="section-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">CRUD</p>
+            <h3>Fuel prices</h3>
+          </div>
+          <button type="button" id="refreshPricesBtn" class="btn secondary">Refresh</button>
+        </div>
+        <form id="priceForm" class="form-grid">
+          <input type="hidden" id="priceId" />
+          <div class="field"><label for="priceStationId">Station</label><select id="priceStationId" required><option value="">Load stations first...</option></select></div>
+          <div class="field"><label for="petrol95">Petrol 95</label><input id="petrol95" type="number" min="0" step="0.001" required /></div>
+          <div class="field"><label for="diesel">Diesel</label><input id="diesel" type="number" min="0" step="0.001" required /></div>
+          <div class="field"><label for="lpg">LPG</label><input id="lpg" type="number" min="0" step="0.001" required /></div>
+          <div class="field"><label for="priceDate">Price date</label><input id="priceDate" type="date" required /></div>
+          <div class="form-actions full-span">
+            <button type="submit" class="btn primary">Save price</button>
+            <button type="button" id="newPriceBtn" class="btn ghost">New price</button>
+          </div>
+        </form>
+        <div class="table-wrap short-table">
+          <table id="pricesTable">
+            <thead><tr><th>ID</th><th>Station ID</th><th>Petrol 95</th><th>Diesel</th><th>LPG</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid two-columns">
+      <article class="section-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Calculations</p>
+            <h3>Cheapest fuel by date</h3>
+          </div>
+        </div>
+        <form id="cheapestForm" class="form-grid compact-form">
+          <div class="field"><label for="cheapestDate">Price date</label><input id="cheapestDate" type="date" required /></div>
+          <div class="form-actions align-end"><button type="submit" class="btn primary">Compare</button></div>
+        </form>
+        <div class="metric-grid">
+          <div class="metric-card"><span>Petrol 95</span><strong id="cheapestPetrol">—</strong><small id="cheapestPetrolStation">No data loaded</small></div>
+          <div class="metric-card"><span>Diesel</span><strong id="cheapestDiesel">—</strong><small id="cheapestDieselStation">No data loaded</small></div>
+          <div class="metric-card"><span>LPG</span><strong id="cheapestLpg">—</strong><small id="cheapestLpgStation">No data loaded</small></div>
+        </div>
+      </article>
+
+      <article class="section-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Calculations</p>
+            <h3>Average prices by day</h3>
+          </div>
+          <button type="button" id="loadAveragesBtn" class="btn secondary">Load averages</button>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Average fuel type tabs">
+          <button class="tab active" data-average="all" type="button">All</button>
+          <button class="tab" data-average="petrol" type="button">Petrol 95</button>
+          <button class="tab" data-average="diesel" type="button">Diesel</button>
+          <button class="tab" data-average="lpg" type="button">LPG</button>
+        </div>
+        <div class="table-wrap short-table">
+          <table id="averagesTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section class="section-card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">API response</p>
+          <h3>Activity log</h3>
+        </div>
+        <button type="button" id="clearLogBtn" class="btn ghost">Clear log</button>
+      </div>
+      <pre id="activityLog">Dashboard loaded. Select an action to call the API.</pre>
+    </section>
   </main>
 
-  <!-- Loading overlay -->
-  <div id="loading" class="loading hidden">
-    <div class="spinner"></div>
-    <div>Loading…</div>
-  </div>
-
-  <!-- Toast -->
-  <div id="toast" class="toast hidden"></div>
-
-  <!-- jQuery (must load before app.js) -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-
-  <!-- App Script -->
+  <div id="toast" class="toast" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>
 </html>

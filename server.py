@@ -1,11 +1,35 @@
 # server.py - This file contains the Flask server implementation for the fuel station and fuel price application.
 # Author: Marcin Kaminski
 
+from datetime import date, datetime
+from decimal import Decimal
+
 from flask import Flask, request, jsonify
 from fuelStationDAO import fuelStationDAO
 from fuelPricesDAO import fuelPricesDAO
+from fuelCalculationsDAO import fuelCalculationsDAO
 
 app = Flask(__name__, static_url_path="", static_folder="staticpages")
+
+
+def make_json_safe(value):
+    """Convert database values such as Decimal/date into JSON-friendly values."""
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, list):
+        return [make_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {key: make_json_safe(item) for key, item in value.items()}
+    return value
+
+
+def get_required_query_param(name):
+    value = request.args.get(name)
+    if value is None or str(value).strip() == "":
+        return None
+    return str(value).strip()
 
 
 @app.route("/")
@@ -99,18 +123,27 @@ def update_fuel_station(id):
     if not fuel_station:
         return jsonify({"error": "No fields provided to update"}), 400
 
-    updated = fuelStationDAO.update(id, fuel_station)
-    if not updated:
+    existing = fuelStationDAO.findByID(id)
+    if not existing:
         return jsonify({"error": "Fuel station not found"}), 404
 
+    # The DAO update() method expects all fields and returns None.
+    # Merge the submitted fields with the existing record before updating.
+    existing.update(fuel_station)
+    fuelStationDAO.update(id, existing)
+
+    updated = fuelStationDAO.findByID(id)
     return jsonify(updated), 200
 
 
 @app.route("/fuel_stations/<int:id>", methods=["DELETE"])
 def delete_fuel_station(id):
-    deleted = fuelStationDAO.delete(id)
-    if not deleted:
+    existing = fuelStationDAO.findByID(id)
+    if not existing:
         return jsonify({"error": "Fuel station not found"}), 404
+
+    # The DAO delete() method returns None, so check existence before deleting.
+    fuelStationDAO.delete(id)
     return jsonify({"success": True}), 200
 
 
@@ -210,22 +243,119 @@ def update_fuel_price(id):
     if not fuel_price:
         return jsonify({"error": "No fields provided to update"}), 400
 
-    updated = fuelPricesDAO.update(id, fuel_price)
-    if not updated:
+    existing = fuelPricesDAO.findByID(id)
+    if not existing:
         return jsonify({"error": "Fuel price not found"}), 404
 
+    # The DAO update() method expects all fields and returns None.
+    # Merge the submitted fields with the existing record before updating.
+    existing.update(fuel_price)
+    fuelPricesDAO.update(id, existing)
+
+    updated = fuelPricesDAO.findByID(id)
     return jsonify(updated), 200
 
 
 @app.route("/fuel_prices/<int:id>", methods=["DELETE"])
 def delete_fuel_price(id):
-    deleted = fuelPricesDAO.delete(id)
-    if not deleted:
+    existing = fuelPricesDAO.findByID(id)
+    if not existing:
         return jsonify({"error": "Fuel price not found"}), 404
+
+    # The DAO delete() method returns None, so check existence before deleting.
+    fuelPricesDAO.delete(id)
     return jsonify({"success": True}), 200
 
 
 
+
+
+# -----------------------------
+# Fuel calculations endpoints
+# -----------------------------
+
+@app.route("/fuel_calculations/latest_prices", methods=["GET"])
+def get_latest_prices_by_date():
+    price_date = get_required_query_param("price_date")
+    if price_date is None:
+        return jsonify({"error": "price_date query parameter is required"}), 400
+
+    latest_prices = fuelCalculationsDAO.getLatestPricesByDate(price_date)
+    return jsonify(make_json_safe(latest_prices)), 200
+
+
+@app.route("/fuel_calculations/prices_by_locality", methods=["GET"])
+def find_fuel_prices_by_locality_and_date():
+    locality = get_required_query_param("locality")
+    price_date = get_required_query_param("price_date")
+
+    if locality is None:
+        return jsonify({"error": "locality query parameter is required"}), 400
+    if price_date is None:
+        return jsonify({"error": "price_date query parameter is required"}), 400
+
+    fuel_prices = fuelCalculationsDAO.findFuelPricesByLocalityAndDate(locality, price_date)
+    return jsonify(make_json_safe(fuel_prices)), 200
+
+
+@app.route("/fuel_calculations/cheapest_petrol_95", methods=["GET"])
+def get_cheapest_petrol_95_by_date():
+    price_date = get_required_query_param("price_date")
+    if price_date is None:
+        return jsonify({"error": "price_date query parameter is required"}), 400
+
+    cheapest_fuel = fuelCalculationsDAO.getCheapestPetrol95ByDate(price_date)
+    if not cheapest_fuel:
+        return jsonify({"error": "Fuel price not found for given date"}), 404
+    return jsonify(make_json_safe(cheapest_fuel)), 200
+
+
+@app.route("/fuel_calculations/cheapest_diesel", methods=["GET"])
+def get_cheapest_diesel_by_date():
+    price_date = get_required_query_param("price_date")
+    if price_date is None:
+        return jsonify({"error": "price_date query parameter is required"}), 400
+
+    cheapest_fuel = fuelCalculationsDAO.getCheapestDieselByDate(price_date)
+    if not cheapest_fuel:
+        return jsonify({"error": "Fuel price not found for given date"}), 404
+    return jsonify(make_json_safe(cheapest_fuel)), 200
+
+
+@app.route("/fuel_calculations/cheapest_lpg", methods=["GET"])
+def get_cheapest_lpg_by_date():
+    price_date = get_required_query_param("price_date")
+    if price_date is None:
+        return jsonify({"error": "price_date query parameter is required"}), 400
+
+    cheapest_fuel = fuelCalculationsDAO.getCheapestLpgByDate(price_date)
+    if not cheapest_fuel:
+        return jsonify({"error": "Fuel price not found for given date"}), 404
+    return jsonify(make_json_safe(cheapest_fuel)), 200
+
+
+@app.route("/fuel_calculations/average_petrol_95_by_day", methods=["GET"])
+def get_average_petrol_95_by_day():
+    average_prices = fuelCalculationsDAO.getAveragePetrol95ByDay()
+    return jsonify(make_json_safe(average_prices)), 200
+
+
+@app.route("/fuel_calculations/average_diesel_by_day", methods=["GET"])
+def get_average_diesel_by_day():
+    average_prices = fuelCalculationsDAO.getAverageDieselByDay()
+    return jsonify(make_json_safe(average_prices)), 200
+
+
+@app.route("/fuel_calculations/average_lpg_by_day", methods=["GET"])
+def get_average_lpg_by_day():
+    average_prices = fuelCalculationsDAO.getAverageLpgByDay()
+    return jsonify(make_json_safe(average_prices)), 200
+
+
+@app.route("/fuel_calculations/average_all_fuel_types_by_day", methods=["GET"])
+def get_average_all_fuel_types_by_day():
+    average_prices = fuelCalculationsDAO.getAverageAllFuelTypesByDay()
+    return jsonify(make_json_safe(average_prices)), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
