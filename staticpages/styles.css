@@ -101,26 +101,83 @@ pre { margin: 0; min-height: 110px; overflow: auto; white-space: pre-wrap; color
 .toast.success { border-color: rgba(74,222,128,.5); }
 .toast.error { border-color: rgba(255,92,92,.5); }
 .hidden-by-search { display: none; }
-.cheapest-price {
-  background: linear-gradient(135deg, rgba(74,222,128,0.22), rgba(244,197,66,0.18));
-  color: #d7ffe8;
-  font-weight: 900;
-  box-shadow: inset 3px 0 0 var(--success);
-}
+@media (max-width: 980px) { .two-columns, .compact-form { grid-template-columns: 1fr; } .metric-grid { grid-template-columns: 1fr; } .search-row, .button-row { flex-wrap: wrap; } .btn { width: 100%; } }
+@media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .topbar { align-items: flex-start; } }
 
-.cheapest-price::after {
-  content: " Cheapest";
+/* Authentication controls */
+.topbar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.auth-card { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,0.04); }
+.auth-card input { width: 135px; border: 1px solid var(--line); background: #0c0e13; color: var(--text); border-radius: 12px; padding: 10px 11px; outline: none; }
+.auth-card input:focus { border-color: rgba(244,197,66,.75); box-shadow: 0 0 0 4px rgba(244,197,66,.12); }
+.small-btn { padding: 10px 12px; border-radius: 12px; }
+.auth-status { color: var(--muted); font-size: 0.82rem; font-weight: 800; padding: 0 6px; }
+.field select { width: 100%; border: 1px solid var(--line); background: #0c0e13; color: var(--text); border-radius: 14px; padding: 12px 14px; outline: none; transition: border-color .2s, box-shadow .2s, background .2s; }
+.field select:focus { border-color: rgba(244,197,66,.75); box-shadow: 0 0 0 4px rgba(244,197,66,.12); background: #10131a; }
+.auth-disabled { opacity: .48; filter: grayscale(.25); }
+.price-cell { text-align: right; font-variant-numeric: tabular-nums; }
+.cheapest-price { color: var(--success); font-weight: 900; background: rgba(74,222,128,.09); box-shadow: inset 4px 0 0 rgba(74,222,128,.75); }
+@media (max-width: 640px) { .auth-card input { width: 100%; } }
+
+/* Strong visual cue for the cheapest price in each fuel column */
+.cheapest-price {
+  color: #07110b;
+  font-weight: 950;
+  background: linear-gradient(135deg, var(--success), #b7f7c8) !important;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.45), 0 0 0 1px rgba(74,222,128,.55);
+  border-radius: 10px;
+}
+.cheapest-price .cheap-label {
   display: inline-block;
   margin-left: 8px;
-  padding: 3px 7px;
+  padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(74,222,128,0.16);
-  color: #bbf7d0;
-  font-size: 0.68rem;
+  background: rgba(0,0,0,.16);
+  color: #07110b;
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+/* Cheapest price highlight: green bar, subtle gradient, and pill badge */
+.price-cell {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.cheapest-price {
+  position: relative;
+  color: #ecfdf5 !important;
   font-weight: 900;
+  background: linear-gradient(90deg, rgba(74,222,128,0.38), rgba(244,197,66,0.22)) !important;
+  box-shadow: inset 4px 0 0 #4ade80 !important;
+  border-radius: 0;
+}
+
+.cheapest-price .price-inner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-width: max-content;
+}
+
+.cheapest-price .price-value {
+  color: #ecfdf5;
+  font-weight: 950;
+}
+
+.cheapest-price .cheap-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(22,101,52,0.82);
+  color: #ecfdf5;
+  font-size: 0.64rem;
+  font-weight: 950;
+  line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-
-@media (max-width: 980px) { .two-columns, .compact-form { grid-template-columns: 1fr; } .metric-grid { grid-template-columns: 1fr; } .search-row, .button-row { flex-wrap: wrap; } .btn { width: 100%; } }
-@media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .topbar { align-items: flex-start; } }

@@ -10,11 +10,14 @@ const state = {
   prices: [],
   recentPrices: [],
   averages: { all: [], petrol: [], diesel: [], lpg: [] },
-  currentAverage: "all"
+  currentAverage: "all",
+  authenticated: false,
+  username: null
 };
 
 $(document).ready(function () {
   bindEvents();
+  checkAuthStatus();
   loadInitialData();
 });
 
@@ -29,8 +32,11 @@ function bindEvents() {
   $("#clearLogBtn").on("click", () => $("#activityLog").text("Activity log cleared."));
 
   $("#refreshStationsBtn").on("click", refreshStations);
-  $("#refreshPricesBtn").on("click", refreshPrices);
-  $("#loadAllPricesBtn").on("click", refreshPrices);
+  $("#refreshPricesBtn, #loadAllPricesBtn").on("click", refreshPrices);
+  $("#loginBtn").on("click", login);
+  $("#signupBtn").on("click", signup);
+  $("#logoutBtn").on("click", logout);
+  $("#authPassword").on("keyup", function (event) { if (event.key === "Enter") login(); });
   $("#loadAveragesBtn").on("click", loadAllAverages);
 
   $("#stationForm").on("submit", saveStation);
@@ -54,18 +60,105 @@ function bindEvents() {
   $(document).on("click", ".delete-price", function () { deletePrice($(this).data("id")); });
 }
 
+function checkAuthStatus() {
+  return $.getJSON("/me").done(function (data) {
+    state.authenticated = Boolean(data.authenticated);
+    state.username = data.username || null;
+    updateAuthUI();
+  }).fail(function () {
+    state.authenticated = false;
+    state.username = null;
+    updateAuthUI();
+  });
+}
+
+function login() {
+  const username = $("#authUsername").val().trim();
+  const password = $("#authPassword").val();
+  if (!username || !password) {
+    showToast("Enter username and password", "error");
+    return;
+  }
+  return ajaxRequest({
+    url: "/login",
+    method: "POST",
+    data: JSON.stringify({ username, password })
+  }).done(function (data) {
+    state.authenticated = true;
+    state.username = data.username || username;
+    $("#authPassword").val("");
+    updateAuthUI();
+    showToast("Logged in", "success");
+  });
+}
+
+function signup() {
+  const username = $("#authUsername").val().trim();
+  const password = $("#authPassword").val();
+  if (!username || !password) {
+    showToast("Enter username and password", "error");
+    return;
+  }
+  return ajaxRequest({
+    url: "/signup",
+    method: "POST",
+    data: JSON.stringify({ username, password })
+  }).done(function (data) {
+    state.authenticated = true;
+    state.username = data.username || username;
+    $("#authPassword").val("");
+    updateAuthUI();
+    showToast("Account created and signed in", "success");
+  });
+}
+
+function logout() {
+  return ajaxRequest({ url: "/logout", method: "POST" }).always(function () {
+    state.authenticated = false;
+    state.username = null;
+    updateAuthUI();
+    showToast("Logged out", "success");
+  });
+}
+
+function updateAuthUI() {
+  if (state.authenticated) {
+    $("#loginBtn,#signupBtn,#authUsername,#authPassword").hide();
+    $("#logoutBtn").show();
+    $("#authStatus").text("Signed in as " + state.username);
+  } else {
+    $("#loginBtn,#signupBtn,#authUsername,#authPassword").show();
+    $("#logoutBtn").hide();
+    $("#authStatus").text("Read-only mode");
+  }
+
+  $("#stationForm input,#priceForm input,#priceForm select").prop("disabled", !state.authenticated);
+  $("#stationForm,#priceForm").toggleClass("auth-disabled", !state.authenticated);
+  $("#stationForm button,#priceForm button,.edit-station,.delete-station,.edit-price,.delete-price").prop("disabled", !state.authenticated);
+}
+
+function requireLogin() {
+  if (!state.authenticated) {
+    showToast("Please log in to make changes", "error");
+    return false;
+  }
+  return true;
+}
+
 function refreshStations() {
   return loadStations().then(function () {
-    state.recentPrices = state.prices.map(price => ({
-      name: stationName(price.station_id),
-      locality: stationLocality(price.station_id),
-      petrol_95: price.petrol_95,
-      diesel: price.diesel,
-      lpg: price.lpg,
-      price_date: price.price_date,
-      station_id: price.station_id,
-      id: price.id
-    }));
+    state.recentPrices = state.prices.map(function (price) {
+      return {
+        name: stationName(price.station_id),
+        locality: stationLocality(price.station_id),
+        petrol_95: price.petrol_95,
+        diesel: price.diesel,
+        lpg: price.lpg,
+        price_date: price.price_date,
+        station_id: price.station_id,
+        id: price.id
+      };
+    });
     renderPrices();
     renderRecentPrices(state.recentPrices, "Stations refreshed. Price station names updated.");
     showToast("Fuel stations refreshed", "success");
@@ -132,8 +225,7 @@ function loadPrices() {
       diesel: price.diesel,
       lpg: price.lpg,
       price_date: price.price_date,
-      station_id: price.station_id,
-      id: price.id
+      station_id: price.station_id
     }));
     renderPrices();
     renderRecentPrices(state.recentPrices, "All fuel prices loaded from /fuel_prices.");
@@ -142,6 +234,7 @@ function loadPrices() {
 
 function saveStation(event) {
   event.preventDefault();
+  if (!requireLogin()) return;
   const id = $("#stationId").val();
   const payload = {
     name: $("#stationName").val().trim(),
@@ -159,6 +252,7 @@ function saveStation(event) {
 }
 
 function deleteStation(id) {
+  if (!requireLogin()) return;
   if (!window.confirm(`Delete station #${id}?`)) return;
   ajaxRequest({ url: `${API.stations}/${id}`, method: "DELETE" }).done(function () {
     showToast("Station deleted", "success");
@@ -168,6 +262,7 @@ function deleteStation(id) {
 
 function savePrice(event) {
   event.preventDefault();
+  if (!requireLogin()) return;
   const id = $("#priceId").val();
   const payload = {
     station_id: Number($("#priceStationId").val()),
@@ -187,6 +282,7 @@ function savePrice(event) {
 }
 
 function deletePrice(id) {
+  if (!requireLogin()) return;
   if (!window.confirm(`Delete fuel price #${id}?`)) return;
   ajaxRequest({ url: `${API.prices}/${id}`, method: "DELETE" }).done(function () {
     showToast("Fuel price deleted", "success");
@@ -263,6 +359,7 @@ function renderStations() {
       <td class="row-actions"><button class="btn secondary edit-station" data-id="${s.id}">Edit</button><button class="btn danger delete-station" data-id="${s.id}">Delete</button></td>
     </tr>`).join("");
   $("#stationsTable tbody").html(rows || emptyRow(6, "No fuel stations found."));
+  updateAuthUI();
 }
 
 function renderStationSelect() {
@@ -277,32 +374,23 @@ function renderStationSelect() {
 }
 
 function renderPrices() {
-  const sortedPrices = sortByDateDescending(state.prices);
-  const cheapest = getCheapestFuelValues(sortedPrices);
-  const rows = sortedPrices.map(p => `
+  const sorted = sortByDateDescending(state.prices);
+  const cheapest = cheapestValuesByFuel(sorted);
+  const rows = sorted.map(p => `
     <tr>
-      <td>${escapeHtml(p.id)}</td>
-      <td>${escapeHtml(stationDisplayName(p.station_id))}</td>
-      <td class="${cheapestPriceClass(p.petrol_95, cheapest.petrol_95)}">${formatPrice(p.petrol_95)}</td>
-      <td class="${cheapestPriceClass(p.diesel, cheapest.diesel)}">${formatPrice(p.diesel)}</td>
-      <td class="${cheapestPriceClass(p.lpg, cheapest.lpg)}">${formatPrice(p.lpg)}</td>
-      <td>${formatDate(p.price_date)}</td>
+      <td>${escapeHtml(p.id)}</td><td>${escapeHtml(stationDisplayName(p.station_id))}</td>${priceCell(p.petrol_95, "petrol_95", cheapest)}${priceCell(p.diesel, "diesel", cheapest)}${priceCell(p.lpg, "lpg", cheapest)}<td>${formatDate(p.price_date)}</td>
       <td class="row-actions"><button class="btn secondary edit-price" data-id="${p.id}">Edit</button><button class="btn danger delete-price" data-id="${p.id}">Delete</button></td>
     </tr>`).join("");
   $("#pricesTable tbody").html(rows || emptyRow(7, "No fuel prices found."));
+  updateAuthUI();
 }
 
 function renderRecentPrices(items, summary) {
   const sorted = sortByDateDescending(items);
-  const cheapest = getCheapestFuelValues(sorted);
+  const cheapest = cheapestValuesByFuel(sorted);
   const rows = sorted.map(p => `
     <tr>
-      <td>${escapeHtml(p.name || stationName(p.station_id))}</td>
-      <td>${escapeHtml(p.locality || stationLocality(p.station_id))}</td>
-      <td class="${cheapestPriceClass(p.petrol_95, cheapest.petrol_95)}">${formatPrice(p.petrol_95)}</td>
-      <td class="${cheapestPriceClass(p.diesel, cheapest.diesel)}">${formatPrice(p.diesel)}</td>
-      <td class="${cheapestPriceClass(p.lpg, cheapest.lpg)}">${formatPrice(p.lpg)}</td>
-      <td>${formatDate(p.price_date)}</td>
+      <td>${escapeHtml(p.name || stationName(p.station_id))}</td><td>${escapeHtml(p.locality || stationLocality(p.station_id))}</td>${priceCell(p.petrol_95, "petrol_95", cheapest)}${priceCell(p.diesel, "diesel", cheapest)}${priceCell(p.lpg, "lpg", cheapest)}<td>${formatDate(p.price_date)}</td>
     </tr>`).join("");
   $("#recentPricesTable tbody").html(rows || emptyRow(6, "No recent prices found."));
   $("#recentPriceSummary").text(summary);
@@ -315,17 +403,27 @@ function renderAveragesTable() {
   let rows = "";
 
   if (type === "all") {
+    const cheapestAverages = cheapestValuesByKeys(data, ["avg_petrol_95", "avg_diesel", "avg_lpg"]);
     headers = "<tr><th>Date</th><th>Avg Petrol 95</th><th>Avg Diesel</th><th>Avg LPG</th></tr>";
-    rows = data.map(r => `<tr><td>${formatDate(r.price_date)}</td><td>${formatPrice(r.avg_petrol_95)}</td><td>${formatPrice(r.avg_diesel)}</td><td>${formatPrice(r.avg_lpg)}</td></tr>`).join("");
+    rows = data.map(r => `
+      <tr>
+        <td>${formatDate(r.price_date)}</td>
+        ${priceCell(r.avg_petrol_95, "avg_petrol_95", cheapestAverages)}
+        ${priceCell(r.avg_diesel, "avg_diesel", cheapestAverages)}
+        ${priceCell(r.avg_lpg, "avg_lpg", cheapestAverages)}
+      </tr>`).join("");
   } else if (type === "petrol") {
+    const cheapestAverages = cheapestValuesByKeys(data, ["avg_petrol_95"]);
     headers = "<tr><th>Date</th><th>Avg Petrol 95</th></tr>";
-    rows = data.map(r => `<tr><td>${formatDate(r.price_date)}</td><td>${formatPrice(r.avg_petrol_95)}</td></tr>`).join("");
+    rows = data.map(r => `<tr><td>${formatDate(r.price_date)}</td>${priceCell(r.avg_petrol_95, "avg_petrol_95", cheapestAverages)}</tr>`).join("");
   } else if (type === "diesel") {
+    const cheapestAverages = cheapestValuesByKeys(data, ["avg_diesel"]);
     headers = "<tr><th>Date</th><th>Avg Diesel</th></tr>";
-    rows = data.map(r => `<tr><td>${formatDate(r.price_date)}</td><td>${formatPrice(r.avg_diesel)}</td></tr>`).join("");
+    rows = data.map(r => `<tr><td>${formatDate(r.price_date)}</td>${priceCell(r.avg_diesel, "avg_diesel", cheapestAverages)}</tr>`).join("");
   } else {
+    const cheapestAverages = cheapestValuesByKeys(data, ["avg_lpg"]);
     headers = "<tr><th>Date</th><th>Avg LPG</th></tr>";
-    rows = data.map(r => `<tr><td>${formatDate(r.price_date)}</td><td>${formatPrice(r.avg_lpg)}</td></tr>`).join("");
+    rows = data.map(r => `<tr><td>${formatDate(r.price_date)}</td>${priceCell(r.avg_lpg, "avg_lpg", cheapestAverages)}</tr>`).join("");
   }
 
   $("#averagesTable thead").html(headers);
@@ -333,6 +431,7 @@ function renderAveragesTable() {
 }
 
 function fillStationForm(id) {
+  if (!requireLogin()) return;
   const station = state.stations.find(s => Number(s.id) === Number(id));
   if (!station) return showToast("Station not found in loaded data", "error");
   $("#stationId").val(station.id);
@@ -344,6 +443,7 @@ function fillStationForm(id) {
 }
 
 function fillPriceForm(id) {
+  if (!requireLogin()) return;
   const price = state.prices.find(p => Number(p.id) === Number(id));
   if (!price) return showToast("Price not found in loaded data", "error");
   $("#priceId").val(price.id);
@@ -355,8 +455,10 @@ function fillPriceForm(id) {
   window.scrollTo({ top: $("#priceForm").offset().top - 120, behavior: "smooth" });
 }
 
-function clearStationForm() { $("#stationForm")[0].reset(); $("#stationId").val(""); }
-function clearPriceForm() { $("#priceForm")[0].reset(); $("#priceId").val(""); renderStationSelect(); setTodayDefaults(); }
+function clearStationForm() {
+  if (!state.authenticated) return; $("#stationForm")[0].reset(); $("#stationId").val(""); }
+function clearPriceForm() {
+  if (!state.authenticated) return; $("#priceForm")[0].reset(); $("#priceId").val(""); renderStationSelect(); setTodayDefaults(); }
 
 function clearAllFormsAndTables() {
   clearStationForm();
@@ -438,19 +540,10 @@ function sortByDateDescending(items) {
 function dateSortValue(value) {
   if (!value) return 0;
   const text = String(value).trim();
-
-  // Handles MySQL/Flask ISO values such as 2026-04-29 or 2026-04-29T00:00:00.
   const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (isoMatch) {
-    return new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3])).getTime();
-  }
-
-  // Handles displayed/user-style values such as 29/04/2026, 29-04-2026, 29.04.2026.
+  if (isoMatch) return new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3])).getTime();
   const europeanMatch = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
-  if (europeanMatch) {
-    return new Date(Number(europeanMatch[3]), Number(europeanMatch[2]) - 1, Number(europeanMatch[1])).getTime();
-  }
-
+  if (europeanMatch) return new Date(Number(europeanMatch[3]), Number(europeanMatch[2]) - 1, Number(europeanMatch[1])).getTime();
   const parsed = Date.parse(text);
   return Number.isNaN(parsed) ? 0 : parsed;
 }
@@ -472,31 +565,43 @@ function stationLocality(id) {
   return findStationById(id)?.locality || "—";
 }
 
-function getCheapestFuelValues(items) {
-  return {
-    petrol_95: getMinimumNumericValue(items, "petrol_95"),
-    diesel: getMinimumNumericValue(items, "diesel"),
-    lpg: getMinimumNumericValue(items, "lpg")
-  };
-}
-
-function getMinimumNumericValue(items, fieldName) {
-  const values = (items || [])
-    .map(item => Number(item[fieldName]))
-    .filter(value => Number.isFinite(value));
-  return values.length ? Math.min(...values) : null;
-}
-
-function cheapestPriceClass(value, cheapestValue) {
+function numericPrice(value) {
   const number = Number(value);
-  if (!Number.isFinite(number) || cheapestValue === null) return "";
-  return Math.abs(number - cheapestValue) < 0.000001 ? "cheapest-price" : "";
+  return Number.isFinite(number) ? number : null;
+}
+
+function cheapestValuesByFuel(items) {
+  return cheapestValuesByKeys(items, ["petrol_95", "diesel", "lpg"]);
+}
+
+function cheapestValuesByKeys(items, keys) {
+  return keys.reduce(function (result, key) {
+    const values = (items || [])
+      .map(item => numericPrice(item[key]))
+      .filter(value => value !== null);
+    result[key] = values.length ? Math.min(...values) : null;
+    return result;
+  }, {});
+}
+
+function priceCell(value, priceKey, cheapest) {
+  const number = numericPrice(value);
+  const isCheapest = number !== null && cheapest[priceKey] !== null && number === cheapest[priceKey];
+  const classes = `price-cell${isCheapest ? " cheapest-price" : ""}`;
+  const title = isCheapest ? ` title="Cheapest price in this column"` : "";
+  return `
+    <td class="${classes}"${title}>
+      <div class="price-inner">
+        <span class="price-value">${formatPrice(value)}</span>
+        ${isCheapest ? '<span class="cheap-label">CHEAPEST</span>' : ''}
+      </div>
+    </td>`;
 }
 
 function formatPrice(value) {
   if (value === null || value === undefined || value === "") return "—";
   const number = Number(value);
-  return Number.isFinite(number) ? `€${number.toFixed(2)}/L` : escapeHtml(value);
+  return Number.isFinite(number) ? "€" + number.toFixed(2) + "/L" : escapeHtml(value);
 }
 
 function formatDate(value) {

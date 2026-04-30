@@ -17,7 +17,17 @@
           <h1>WS&A Project</h1>
         </div>
       </div>
-      <div class="status-pill" id="apiStatus">API ready</div>
+      <div class="topbar-actions">
+        <div class="auth-card" id="authSection">
+          <input id="authUsername" type="text" placeholder="Username" autocomplete="username" />
+          <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
+          <button type="button" id="loginBtn" class="btn primary small-btn">Login</button>
+          <button type="button" id="signupBtn" class="btn secondary small-btn">Sign up</button>
+          <button type="button" id="logoutBtn" class="btn ghost small-btn" style="display:none;">Logout</button>
+          <span id="authStatus" class="auth-status">Read-only mode</span>
+        </div>
+        <div class="status-pill" id="apiStatus">API ready</div>
+      </div>
     </nav>
 
     <section class="hero-grid">
@@ -97,7 +107,7 @@
           <div class="field"><label for="stationPostcode">Postcode</label><input id="stationPostcode" type="text" required /></div>
           <div class="form-actions full-span">
             <button type="submit" class="btn primary">Save station</button>
-            <button type="button" id="newStationBtn" class="btn ghost">New station</button>
+            <button type="button" id="newStationBtn" class="btn ghost">Add new station</button>
           </div>
         </form>
         <div class="table-wrap short-table">
@@ -125,7 +135,7 @@
           <div class="field"><label for="priceDate">Price date</label><input id="priceDate" type="date" required /></div>
           <div class="form-actions full-span">
             <button type="submit" class="btn primary">Save price</button>
-            <button type="button" id="newPriceBtn" class="btn ghost">New price</button>
+            <button type="button" id="newPriceBtn" class="btn ghost">Add new price</button>
           </div>
         </form>
         <div class="table-wrap short-table">
